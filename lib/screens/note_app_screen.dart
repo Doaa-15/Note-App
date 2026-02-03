@@ -4,6 +4,7 @@ import 'package:node_app/node_class.dart';
 import 'package:node_app/note_dao.dart';
 import 'package:node_app/views/note_app_body.dart';
 import 'package:node_app/core/theme/color.dart';
+import 'package:get/get.dart';
 
 class NoteAppScreen extends StatefulWidget {
   const NoteAppScreen({super.key});
@@ -17,8 +18,10 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
   final noteController = TextEditingController();
   final locationController = TextEditingController();
 
+
   AppDatabase? database;
   NoteDao? noteDao;
+    bool useCurrentLocation = false;
 
   @override
   void initState() {
@@ -79,17 +82,35 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
                           validator: (value) =>
                               value!.isEmpty ? "Please enter note" : null,
                         ),
-                     
-                        TextFormField(
-                          controller: locationController,
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            hintText: "Enter location",
+                  
+
+                 
+                      TextFormField(
+                        controller: locationController,
+                        enabled: !useCurrentLocation,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
+                          hintText: "Enter location",
                         ),
-                                     
+                      ),
+                          Row(
+                        children: [
+                          Checkbox(
+                            value: useCurrentLocation,
+                            onChanged: (value) {
+                              setState(() {
+                                useCurrentLocation = value!;
+                                if (useCurrentLocation) {
+                                  locationController.clear();
+                                }
+                              });
+                            },
+                          ),
+                          Text("Use current location"),
+                        ],
+                      ),        
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: ColorApp.primary,

@@ -26,11 +26,11 @@ class _NoteAppBodyState extends State<NoteAppBody> {
         return const SizedBox();
       }
       if (snapshot.hasError) {
-        return const Center(child: Text("Error loading notes"));
+        return const Center(child: Text("Error"));
       }
       final notes = snapshot.data ?? [];
       if (notes.isEmpty) {
-        return const Center(child: Text("No Notes Yet"));
+        return const Center(child: Text("No Notes"));
       }
         return ListView.builder(
           padding: EdgeInsets.all(8),
