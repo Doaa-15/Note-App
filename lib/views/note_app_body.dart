@@ -36,43 +36,59 @@ class _NoteAppBodyState extends State<NoteAppBody> {
           padding: EdgeInsets.all(8),
           itemCount: notes.length,
           itemBuilder: (context, index) {
-            final note = notes[index];
+           
             return Card(
               color: ColorApp.third,
               child: ListTile(
                 leading: Icon(Icons.location_pin),
-                title: Text(note.title),
-                subtitle: Text(note.location ?? "No location"),
+                title: Text(notes[index].title),
+                subtitle: Text(notes[index].location ?? "No location"),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
                       icon: Icon(Icons.edit),
                       onPressed: () async {
-                        final notecontroller = TextEditingController(text: note.title);
-                        final locationController =TextEditingController(text: note.location);
+                        final notecontroller = TextEditingController(text: notes[index].title);
+                        final locationController =TextEditingController(text: notes[index].location);
                         await showDialog(
+                          
                           context: context,
                           builder: (context) => AlertDialog(
                             title: Text("Edit Note"),
                             content: Column(
+                              spacing: 10,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                TextField(controller: notecontroller),
-                                TextField(controller: locationController),
+                                TextField(
+                                  decoration: InputDecoration(
+                                    labelText: 'Note',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8)
+                                    )
+                                  ),
+                                  controller: notecontroller),
+
+                                TextField(decoration: InputDecoration(
+                                   labelText: 'Location',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8)
+                                    )
+                                  ),
+                                  controller: locationController),
                               ],
                             ),
                             actions: [
                               TextButton(
                                 onPressed: () async {
                                   await widget.noteDao!.updateNote(Note(
-                                      id: note.id,
+                                      id: notes[index].id,
                                       title: notecontroller.text,
                                       location: locationController.text));
                                   Navigator.pop(context);
                                   setState(() {});
                                 },
-                                child: Text("Update"),
+                                child: Text("Update",style: TextStyle(color: Colors.black),),
                               ),
                             ],
                           ),
@@ -82,7 +98,7 @@ class _NoteAppBodyState extends State<NoteAppBody> {
                     IconButton(
                       icon: Icon(Icons.delete),
                       onPressed: () async {
-                        await widget.noteDao!.deleteNote(note);
+                        await widget.noteDao!.deleteNote(notes[index]);
                         setState(() {});
                       },
                     ),

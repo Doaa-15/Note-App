@@ -19,7 +19,7 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
   final locationController = TextEditingController();
 
 
-  AppDatabase? database;
+  AppDatabase? database; //database copy
   NoteDao? noteDao;
     bool useCurrentLocation = false;
 
@@ -71,6 +71,7 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
                       spacing: 20,
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        //note text field
                         TextFormField(
                           controller: noteController,
                           decoration: InputDecoration(
@@ -84,7 +85,7 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
                         ),
                   
 
-                 
+                 //location text field
                       TextFormField(
                         controller: locationController,
                         enabled: !useCurrentLocation,
@@ -93,8 +94,9 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           hintText: "Enter location",
-                        ),
+                        ),  
                       ),
+                      //check box
                           Row(
                         children: [
                           Checkbox(
@@ -108,7 +110,7 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
                               });
                             },
                           ),
-                          Text("Use current location"),
+                          Text("current location"),
                         ],
                       ),        
                         ElevatedButton(
@@ -119,9 +121,7 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
                             if (formKey.currentState!.validate()) {
                               await noteDao!.insertNote(Note(
                                   title: noteController.text,
-                                  location: locationController.text.isEmpty
-                                      ? null
-                                      : locationController.text));
+                                  location:locationController.text));
                               noteController.clear();
                               locationController.clear();
                               Navigator.pop(context);
