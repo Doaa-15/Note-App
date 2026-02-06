@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:node_app/main.dart';
 import 'package:node_app/screens/note_app_screen.dart';
 
 class NoteApp extends StatelessWidget {
@@ -6,9 +7,9 @@ class NoteApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: NoteAppScreen(),
+      home: NoteAppScreen(noteDao: noteDao,),
     );
   }
 }

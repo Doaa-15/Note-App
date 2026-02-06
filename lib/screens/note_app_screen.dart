@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:node_app/app_database.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:node_app/node_class.dart';
 import 'package:node_app/note_dao.dart';
 import 'package:node_app/views/note_app_body.dart';
 import 'package:node_app/core/theme/color.dart';
-import 'package:get/get.dart';
 
 class NoteAppScreen extends StatefulWidget {
-  const NoteAppScreen({super.key});
+  final NoteDao noteDao;
+  const NoteAppScreen({super.key, required this.noteDao});
 
   @override
   State<NoteAppScreen> createState() => _NoteAppScreenState();
@@ -18,23 +19,12 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
   final noteController = TextEditingController();
   final locationController = TextEditingController();
 
-
-  AppDatabase? database; //database copy
-  NoteDao? noteDao;
-    bool useCurrentLocation = false;
+  bool useCurrentLocation = false;
 
   @override
   void initState() {
     super.initState();
-    initDb();
-  }
-
-  Future<void> initDb() async {
-    database = await $FloorAppDatabase
-        .databaseBuilder('app_database.db')
-        .build();
-    noteDao = database!.noteDao;
-    
+    checkLocationPermissionOnStart();
   }
 
   @override
@@ -42,6 +32,194 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
     noteController.dispose();
     locationController.dispose();
     super.dispose();
+  }
+
+  // ===== دوال الموقع =====
+  Future<Position?> getCurrentLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return null;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return null;
+    }
+    if (permission == LocationPermission.deniedForever) return null;
+
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+  }
+
+  Future<void> checkLocationPermissionOnStart() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enable location services')),
+      );
+      await Geolocator.openLocationSettings();
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please allow location permission from settings')),
+      );
+      await Geolocator.openAppSettings();
+    }
+  }
+
+  Future<String> getAddressFromCoordinates(Position position) async {
+    try {
+      List<Placemark> placemarks =
+          await placemarkFromCoordinates(position.latitude, position.longitude);
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        return "${place.street ?? ''}, ${place.locality ?? ''}, ${place.country ?? ''}";
+      }
+    } catch (e) {
+      print("Error in reverse geocoding: $e");
+    }
+    return "Address not available";
+  }
+
+  // ===== فتح BottomSheet لإضافة نوت =====
+  Future<void> openAddNoteSheet() async {
+    final result = await showModalBottomSheet(
+      backgroundColor: ColorApp.second,
+      isScrollControlled: true,
+      context: context,
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: formKey,
+            child: SizedBox(
+              height: 500,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // TextField للنوت
+                  TextFormField(
+                    controller: noteController,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      hintText: "Enter note",
+                    ),
+                    validator: (value) =>
+                        (value == null || value.isEmpty) ? "Please enter note" : null,
+                  ),
+                  const SizedBox(height: 10),
+                  // TextField للموقع
+                  TextFormField(
+                    controller: locationController,
+                    enabled: !useCurrentLocation,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      hintText: "Enter location",
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // Checkbox لاستخدام الموقع الحالي
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: useCurrentLocation,
+                        onChanged: (value) async {
+                          if (value == null) return;
+                          setState(() {
+                            useCurrentLocation = value;
+                            locationController.text =
+                                useCurrentLocation ? "Getting location..." : "";
+                          });
+
+                          if (useCurrentLocation) {
+                            try {
+                              await checkLocationPermissionOnStart();
+                              final pos = await getCurrentLocation();
+                              if (pos != null) {
+                                final address = await getAddressFromCoordinates(pos);
+                                setState(() {
+                                  locationController.text = address;
+                                });
+                              } else {
+                                setState(() {
+                                  locationController.text = "Location not available";
+                                });
+                              }
+                            } catch (e) {
+                              setState(() {
+                                locationController.text = "Error getting location";
+                              });
+                            }
+                          }
+                        },
+                      ),
+                      const Text("Current location"),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // زر الإضافة
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ColorApp.primary,
+                    ),
+                    onPressed: () async {
+                      if (formKey.currentState?.validate() ?? false) {
+                        final title = noteController.text.trim();
+                        final location = locationController.text.trim();
+
+                        // حفظ النوت واللوكيشن بأمان
+                        if (widget.noteDao != null) {
+                          await widget.noteDao.insertNote(
+                            Note(
+                              title: title.isNotEmpty ? title : "No Title",
+                              location: location.isNotEmpty ? location : "No Location",
+                            ),
+                          );
+                        }
+
+                        // تنظيف الحقول بعد الإضافة
+                        noteController.clear();
+                        locationController.clear();
+                        useCurrentLocation = false;
+
+                        Navigator.pop(context, true);
+
+                        // عرض Snackbar آمن
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Note added successfully"),
+                            backgroundColor: ColorApp.primary,
+                            duration: Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    },
+                    child: Text(
+                      "Add",
+                      style: TextStyle(color: ColorApp.second),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result == true) setState(() {}); // إعادة تحميل النوتس
   }
 
   @override
@@ -55,92 +233,10 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: ColorApp.primary,
-        onPressed: () {
-          showModalBottomSheet(
-            backgroundColor: ColorApp.second,
-            isScrollControlled: true,
-            context: context,
-            builder: (context) {
-              return Padding(
-                padding: EdgeInsets.all(16),
-                child: Form(
-                  key: formKey,
-                  child: Container(
-                    height: 500,
-                    child: Column(
-                      spacing: 20,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        //note text field
-                        TextFormField(
-                          controller: noteController,
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            hintText: "Enter note",
-                          ),
-                          validator: (value) =>
-                              value!.isEmpty ? "Please enter note" : null,
-                        ),
-                  
-
-                 //location text field
-                      TextFormField(
-                        controller: locationController,
-                        enabled: !useCurrentLocation,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          hintText: "Enter location",
-                        ),  
-                      ),
-                      //check box
-                          Row(
-                        children: [
-                          Checkbox(
-                            value: useCurrentLocation,
-                            onChanged: (value) {
-                              setState(() {
-                                useCurrentLocation = value!;
-                                if (useCurrentLocation) {
-                                  locationController.clear();
-                                }
-                              });
-                            },
-                          ),
-                          Text("current location"),
-                        ],
-                      ),        
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: ColorApp.primary,
-                          ),
-                          onPressed: () async {
-                            if (formKey.currentState!.validate()) {
-                              await noteDao!.insertNote(Note(
-                                  title: noteController.text,
-                                  location:locationController.text));
-                              noteController.clear();
-                              locationController.clear();
-                              Navigator.pop(context);
-                              setState(() {});
-                            }
-                          },
-                          child: Text("Add", style: TextStyle(color: ColorApp.second)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
+        onPressed: openAddNoteSheet,
         child: Icon(Icons.add, color: ColorApp.second),
       ),
-      body: NoteAppBody(noteDao: noteDao),
+      body: NoteAppBody(noteDao: widget.noteDao),
     );
   }
 }
