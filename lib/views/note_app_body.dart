@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:node_app/node_class.dart';
 import 'package:node_app/note_dao.dart';
 import 'package:node_app/core/theme/color.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class NoteAppBody extends StatefulWidget {
   final NoteDao? noteDao;
@@ -12,6 +15,66 @@ class NoteAppBody extends StatefulWidget {
 }
 
 class _NoteAppBodyState extends State<NoteAppBody> {
+  // ===== دوال الموقع =====
+  Future<Position?> getCurrentLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return null;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return null;
+    }
+    if (permission == LocationPermission.deniedForever) return null;
+
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+  }
+
+  Future<String> getAddressFromCoordinates(Position position) async {
+    try {
+      List<Placemark> placemarks =
+          await placemarkFromCoordinates(position.latitude, position.longitude);
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        return "${place.street ?? ''}, ${place.locality ?? ''}, ${place.country ?? ''}";
+      }
+    } catch (e) {
+      print("Error in reverse geocoding: $e");
+    }
+    return "Address not available";
+  }
+Future<void> _openMap(String address) async {
+  if (address.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("No location available")),
+    );
+    return;
+  }
+
+  final query = Uri.encodeComponent(address);
+
+  // نجرب نفتح Google Maps App الأول
+  final Uri googleMapsApp = Uri.parse("geo:0,0?q=$query");
+
+  // ولو ما اشتغلش نفتح في المتصفح
+  final Uri googleMapsWeb =
+      Uri.parse("https://www.google.com/maps/search/?api=1&query=$query");
+
+  try {
+    if (await canLaunchUrl(googleMapsApp)) {
+      await launchUrl(googleMapsApp);
+    } else {
+      await launchUrl(googleMapsWeb, mode: LaunchMode.externalApplication);
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Could not open the map")),
+    );
+  }
+}
+
   @override
   Widget build(BuildContext context) {
     if (widget.noteDao == null) return const SizedBox();
@@ -24,7 +87,7 @@ class _NoteAppBodyState extends State<NoteAppBody> {
         }
 
         if (snapshot.hasError) {
-          return const Center(child: Text("Error loading notes"));
+          return const Center(child: Text("Error"));
         }
 
         final notes = snapshot.data ?? [];
@@ -38,35 +101,81 @@ class _NoteAppBodyState extends State<NoteAppBody> {
           itemCount: notes.length,
           itemBuilder: (context, index) {
             final note = notes[index];
-
             return Card(
               color: ColorApp.third,
               child: ListTile(
-                leading: const Icon(Icons.location_pin),
+              leading: IconButton(
+  icon: Icon(Icons.location_pin, color: ColorApp.primary),
+  onPressed: () {
+    final location = note.location ?? "";
+    _openMap(location);
+  },
+),
+
                 title: Text(note.title),
                 subtitle: Text(note.location ?? "No location"),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Edit button
+                    // زر التعديل
                     IconButton(
-                      icon: const Icon(Icons.edit),
+                      icon: const Icon(Icons.edit,color: ColorApp.primary),
                       onPressed: () async {
-                        final noteController =
+                        final titleController =
                             TextEditingController(text: note.title);
+                        final locationController =
+                            TextEditingController(text: note.location);
 
                         await showDialog(
                           context: context,
                           builder: (context) => AlertDialog(
                             title: const Text("Edit Note"),
-                            content: TextField(
-                              controller: noteController,
-                              decoration: InputDecoration(
-                                labelText: 'Note',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // العنوان يمكن تعديله
+                                TextField(
+                                  controller: titleController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Title',
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(8)),
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(height: 10),
+                                // اللوكيشن لا يمكن تعديله يدويًا
+                                TextField(
+                                  controller: locationController,
+                                  readOnly: true,
+                                  decoration: InputDecoration(
+                                    labelText: 'Location',
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(8)),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                ElevatedButton.icon(
+                                  icon: const Icon(Icons.my_location),
+                                  label: const Text("Use Current Location"),
+                                  onPressed: () async {
+                                    final pos = await getCurrentLocation();
+                                    if (pos != null) {
+                                      final address =
+                                          await getAddressFromCoordinates(pos);
+                                      setState(() {
+                                        locationController.text = address;
+                                      });
+                                    } else {
+                                      setState(() {
+                                        locationController.text =
+                                            "Location not available";
+                                      });
+                                    }
+                                  },
+                                ),
+                              ],
                             ),
                             actions: [
                               TextButton(
@@ -74,8 +183,8 @@ class _NoteAppBodyState extends State<NoteAppBody> {
                                   await widget.noteDao!.updateNote(
                                     Note(
                                       id: note.id,
-                                      title: noteController.text,
-                                      location: note.location, // location مش يتعدل
+                                      title: titleController.text,
+                                      location: locationController.text,
                                     ),
                                   );
                                   Navigator.pop(context);
@@ -91,39 +200,37 @@ class _NoteAppBodyState extends State<NoteAppBody> {
                         );
                       },
                     ),
-                    // Delete button
-                    Builder(
-                      builder: (scaffoldContext) {
-                        return IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () async {
-                            final deletedNote = note;
+                    // زر الحذف
+              
+  IconButton(
+  icon: const Icon(Icons.delete,color: ColorApp.primary),
+  onPressed: () async {
+    // خزن النوت قبل الحذف
+    final deletedNote = note;
 
-                            // حذف النوت
-                            await widget.noteDao!.deleteNote(note);
-                            setState(() {});
+    // احذف النوت
+    await widget.noteDao!.deleteNote(note);
+    setState(() {}); // تحديث الشاشة
 
-                            // SnackBar مع Undo ويختفي تلقائي
-                            ScaffoldMessenger.of(scaffoldContext)
-                              ..removeCurrentSnackBar()
-                              ..showSnackBar(
-                                SnackBar(
-                                  content: const Text("Note deleted"),
-                                  duration: const Duration(seconds: 2),
-                                  action: SnackBarAction(
-                                    label: 'Undo',
-                                    onPressed: () async {
-                                      await widget.noteDao!
-                                          .insertNote(deletedNote);
-                                      setState(() {});
-                                    },
-                                  ),
-                                ),
-                              );
-                          },
-                        );
-                      },
-                    ),
+    // عرض Snackbar مع Undo
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text("Note deleted"),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Undo',
+          textColor: Colors.yellow,
+          onPressed: () async {
+            // استرجاع النوت المحذوفة
+            await widget.noteDao!.insertNote(deletedNote);
+            setState(() {}); // تحديث الشاشة
+          },
+        ),
+      ),
+    );
+  },
+),
+
                   ],
                 ),
               ),
