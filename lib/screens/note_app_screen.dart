@@ -5,6 +5,7 @@ import 'package:node_app/node_class.dart';
 import 'package:node_app/note_dao.dart';
 import 'package:node_app/views/note_app_body.dart';
 import 'package:node_app/core/theme/color.dart';
+import 'package:shake/shake.dart';
 
 class NoteAppScreen extends StatefulWidget {
   final NoteDao noteDao;
@@ -20,21 +21,41 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
   final locationController = TextEditingController();
 
   bool useCurrentLocation = false;
+ShakeDetector? detector;
+@override
+void initState() {
+  super.initState();
 
-  @override
-  void initState() {
-    super.initState();
-    checkLocationPermissionOnStart();
-  }
+  detector = ShakeDetector.autoStart(
+    onPhoneShake: (ShakeEvent event) async {
+      if (widget.noteDao != null) {
+        await widget.noteDao.deleteAllNotes();
+        if (mounted) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("All notes deleted due to shake!"),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    },
+    shakeThresholdGravity: 2.7,
+  );
+}
+
 
   @override
   void dispose() {
+      detector?.stopListening();
     noteController.dispose();
     locationController.dispose();
     super.dispose();
   }
 
-  // ===== دوال الموقع =====
+
   Future<Position?> getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return null;
@@ -88,7 +109,7 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
     return "Address not available";
   }
 
-  // ===== فتح BottomSheet لإضافة نوت =====
+
   Future<void> openAddNoteSheet() async {
     final result = await showModalBottomSheet(
       backgroundColor: ColorApp.second,
@@ -104,7 +125,7 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // TextField للنوت
+   
                   TextFormField(
                     controller: noteController,
                     decoration: InputDecoration(
@@ -117,7 +138,7 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
                         (value == null || value.isEmpty) ? "Please enter note" : null,
                   ),
                   const SizedBox(height: 10),
-                  // TextField للموقع
+
                   TextFormField(
                     controller: locationController,
                     enabled: !useCurrentLocation,
@@ -129,7 +150,7 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  // Checkbox لاستخدام الموقع الحالي
+
                   Row(
                     children: [
                       Checkbox(
@@ -168,7 +189,7 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  // زر الإضافة
+
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: ColorApp.primary,
@@ -178,7 +199,7 @@ class _NoteAppScreenState extends State<NoteAppScreen> {
                         final title = noteController.text.trim();
                         final location = locationController.text.trim();
 
-                        // حفظ النوت واللوكيشن بأمان
+
                         if (widget.noteDao != null) {
                           await widget.noteDao.insertNote(
                             Note(

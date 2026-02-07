@@ -6,6 +6,7 @@ import 'package:node_app/note_dao.dart';
 import 'package:node_app/core/theme/color.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+
 class NoteAppBody extends StatefulWidget {
   final NoteDao? noteDao;
   const NoteAppBody({super.key, required this.noteDao});
