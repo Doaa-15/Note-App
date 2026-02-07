@@ -17,4 +17,8 @@ abstract class NoteDao {
 
   @Query('DELETE FROM Note')
   Future<void> deleteAllNotes();
+  
+  @Query('UPDATE Note SET location = :address, latitude = :lat, longitude = :long WHERE id = :id')
+Future<void> updateFullLocation(int id, String address, double lat, double long);
+  
 }

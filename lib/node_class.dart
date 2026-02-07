@@ -1,36 +1,21 @@
-class Note {
-  final int? id;
-  final String title;
+import 'package:floor/floor.dart';
 
-  final String? location;
+@entity // تأكدي من وجود هذه الكلمة
+class Note {
+  @PrimaryKey(autoGenerate: true)
+  final int? id;
+  
+  final String title;
+  final String location;
   final double? latitude;
   final double? longitude;
 
+  // يجب أن يكون الـ constructor بنفس اسم الكلاس
   Note({
-    this.id,
-    required this.title,
-    this.location,
-    this.latitude,
-    this.longitude, 
+    this.id, 
+    required this.title, 
+    required this.location, 
+    this.latitude, 
+    this.longitude
   });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'title': title,
-      'location': location,
-      'latitude': latitude,
-      'longitude': longitude,
-    };
-  }
-
-  factory Note.fromMap(Map<String, dynamic> map) {
-    return Note(
-      id: map['id'],
-      title: map['title'],
-      location: map['location'],
-      latitude: map['latitude'],
-      longitude: map['longitude'],
-    );
-  }
 }

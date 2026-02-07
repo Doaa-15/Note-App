@@ -34,8 +34,8 @@ void initState() {
           setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("All notes deleted due to shake!"),
-              backgroundColor: Colors.red,
+              content: Text("All notes deleted "),
+              backgroundColor: Colors.black,
               duration: Duration(seconds: 2),
             ),
           );
@@ -160,7 +160,7 @@ void initState() {
                           setState(() {
                             useCurrentLocation = value;
                             locationController.text =
-                                useCurrentLocation ? "Getting location..." : "";
+                                useCurrentLocation ? "Getting location" : "";
                           });
 
                           if (useCurrentLocation) {

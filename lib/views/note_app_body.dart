@@ -211,20 +211,20 @@ Future<void> _openMap(String address) async {
 
     // احذف النوت
     await widget.noteDao!.deleteNote(note);
-    setState(() {}); // تحديث الشاشة
+    setState(() {}); 
 
-    // عرض Snackbar مع Undo
+  
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text("Note deleted"),
         duration: const Duration(seconds: 5),
         action: SnackBarAction(
           label: 'Undo',
-          textColor: Colors.yellow,
+          textColor: ColorApp.second,
           onPressed: () async {
-            // استرجاع النوت المحذوفة
+    
             await widget.noteDao!.insertNote(deletedNote);
-            setState(() {}); // تحديث الشاشة
+            setState(() {}); 
           },
         ),
       ),

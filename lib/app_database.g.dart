@@ -96,7 +96,7 @@ class _$AppDatabase extends AppDatabase {
       },
       onCreate: (database, version) async {
         await database.execute(
-            'CREATE TABLE IF NOT EXISTS `Note` (`id` INTEGER, `title` TEXT NOT NULL, `location` TEXT, PRIMARY KEY (`id`))');
+            'CREATE TABLE IF NOT EXISTS `Note` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `title` TEXT NOT NULL, `location` TEXT NOT NULL, `latitude` REAL, `longitude` REAL)');
 
         await callback?.onCreate?.call(database, version);
       },
@@ -121,7 +121,9 @@ class _$NoteDao extends NoteDao {
             (Note item) => <String, Object?>{
                   'id': item.id,
                   'title': item.title,
-                  'location': item.location
+                  'location': item.location,
+                  'latitude': item.latitude,
+                  'longitude': item.longitude
                 }),
         _noteUpdateAdapter = UpdateAdapter(
             database,
@@ -130,7 +132,9 @@ class _$NoteDao extends NoteDao {
             (Note item) => <String, Object?>{
                   'id': item.id,
                   'title': item.title,
-                  'location': item.location
+                  'location': item.location,
+                  'latitude': item.latitude,
+                  'longitude': item.longitude
                 }),
         _noteDeletionAdapter = DeletionAdapter(
             database,
@@ -139,7 +143,9 @@ class _$NoteDao extends NoteDao {
             (Note item) => <String, Object?>{
                   'id': item.id,
                   'title': item.title,
-                  'location': item.location
+                  'location': item.location,
+                  'latitude': item.latitude,
+                  'longitude': item.longitude
                 });
 
   final sqflite.DatabaseExecutor database;
@@ -160,12 +166,26 @@ class _$NoteDao extends NoteDao {
         mapper: (Map<String, Object?> row) => Note(
             id: row['id'] as int?,
             title: row['title'] as String,
-            location: row['location'] as String?));
+            location: row['location'] as String,
+            latitude: row['latitude'] as double?,
+            longitude: row['longitude'] as double?));
   }
 
   @override
   Future<void> deleteAllNotes() async {
     await _queryAdapter.queryNoReturn('DELETE FROM Note');
+  }
+
+  @override
+  Future<void> updateFullLocation(
+    int id,
+    String address,
+    double lat,
+    double long,
+  ) async {
+    await _queryAdapter.queryNoReturn(
+        'UPDATE Note SET location = ?2, latitude = ?3, longitude = ?4 WHERE id = ?1',
+        arguments: [id, address, lat, long]);
   }
 
   @override
